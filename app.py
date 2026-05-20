@@ -63,7 +63,9 @@ def save_data(data):
 @app.route("/")
 def index():
     data = get_data()
-    return render_template("index.html", perusahaan=data.get("perusahaan", {}))
+    return render_template("index.html",
+                           perusahaan=data.get("perusahaan", {}),
+                           opening_balances=data.get("opening_balances", {}))
 
 @app.route("/setup", methods=["POST"])
 def setup():

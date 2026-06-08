@@ -11,78 +11,201 @@
 
 <div id="alert-box"></div>
 
-<!-- FORM INPUT -->
+<!-- ── DATA AKUN (JSON untuk JS) ── -->
+<script>
+const AKUN_DATA = [
+  { kode: "111",   nama: "Kas" },
+  { kode: "112",   nama: "Piutang Usaha" },
+  { kode: "113",   nama: "Perlengkapan" },
+  { kode: "114",   nama: "Iklan Dibayar Dimuka" },
+  { kode: "115",   nama: "Asuransi Dibayar Dimuka" },
+  { kode: "116",   nama: "Sewa Dibayar Dimuka" },
+  { kode: "121",   nama: "Peralatan" },
+  { kode: "122",   nama: "Kendaraan" },
+  { kode: "123",   nama: "Bangunan" },
+  { kode: "121.1", nama: "Akumulasi Penyusutan Peralatan" },
+  { kode: "122.1", nama: "Akumulasi Penyusutan Kendaraan" },
+  { kode: "123.1", nama: "Akumulasi Penyusutan Bangunan" },
+  { kode: "211",   nama: "Utang Usaha" },
+  { kode: "212",   nama: "Utang Bank" },
+  { kode: "213",   nama: "Utang Gaji" },
+  { kode: "214",   nama: "Utang Asuransi" },
+  { kode: "215",   nama: "Pendapatan Diterima Dimuka" },
+  { kode: "311",   nama: "Modal" },
+  { kode: "312",   nama: "Prive" },
+  { kode: "313",   nama: "Ikhtisar Laba Rugi" },
+  { kode: "411",   nama: "Pendapatan Jasa" },
+  { kode: "412",   nama: "Pendapatan Sewa" },
+  { kode: "511",   nama: "Beban Gaji" },
+  { kode: "512",   nama: "Beban Sewa" },
+  { kode: "513",   nama: "Beban Iklan" },
+  { kode: "514",   nama: "Beban Asuransi" },
+  { kode: "515",   nama: "Beban Perlengkapan" },
+  { kode: "516",   nama: "Beban Penyusutan Peralatan" },
+  { kode: "517",   nama: "Beban Penyusutan Kendaraan" },
+  { kode: "518",   nama: "Beban Penyusutan Bangunan" },
+  { kode: "519",   nama: "Beban Serba-serbi" },
+  { kode: "520",   nama: "Beban Air, Listrik dan Telepon" },
+];
+
+// NAMA_BULAN didefinisikan di bagian JS date picker
+</script>
+
+<!-- ── CSS TAMBAHAN ── -->
+<style>
+/* Autocomplete dropdown akun */
+.akun-wrapper { position: relative; flex: 2; }
+.akun-input {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 9px 12px; color: var(--text);
+  font-family: var(--font); font-size: 13px;
+  box-sizing: border-box;
+}
+.akun-input:focus { outline: none; border-color: var(--accent); }
+.akun-dropdown {
+  display: none; position: absolute; top: 100%; left: 0; right: 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); z-index: 999;
+  max-height: 220px; overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.akun-dropdown.show { display: block; }
+.akun-option {
+  padding: 9px 14px; cursor: pointer; display: flex;
+  align-items: center; gap: 10px; font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+.akun-option:last-child { border-bottom: none; }
+.akun-option:hover, .akun-option.highlighted { background: var(--surface2); }
+.akun-kode {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  color: var(--accent); background: rgba(79,142,247,0.12);
+  padding: 2px 7px; border-radius: 4px; min-width: 40px;
+  text-align: center; flex-shrink: 0;
+}
+.akun-nama { color: var(--text); }
+.akun-nama mark {
+  background: rgba(79,142,247,0.25); color: var(--accent);
+  border-radius: 2px; padding: 0 1px;
+}
+.akun-selected-badge {
+  font-size: 11px; color: var(--accent); font-family: var(--mono);
+  margin-top: 3px; display: none;
+}
+
+/* Date picker — native calendar */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+</style>
+
+<!-- ── FORM INPUT ── -->
 <div class="card" id="form-card">
   <div class="card-title">Tambah Transaksi</div>
-  <div style="display:grid; grid-template-columns:1fr 2fr; gap:16px; margin-bottom:16px;">
-    <div class="form-group" style="margin:0">
-      <label>Tanggal</label>
-      <input type="text" id="f-tanggal" placeholder="cth: 01 April 2008">
+
+  <!-- TANGGAL — kalender native + preview format Indonesia -->
+  <div style="margin-bottom:16px;">
+    <label>Tanggal</label>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <input type="date" id="date-cal"
+             style="background:var(--bg); border:1px solid var(--border);
+                    border-radius:var(--radius); padding:9px 12px; color:var(--text);
+                    font-family:var(--font); font-size:13px; cursor:pointer;
+                    color-scheme: dark;"
+             onchange="updateTanggal(this.value)">
+      <span id="preview-tanggal"
+            style="font-size:13px; color:var(--accent2); font-weight:600;"></span>
     </div>
-    <div class="form-group" style="margin:0">
-      <label>Keterangan</label>
-      <input type="text" id="f-ket" placeholder="cth: Setoran modal awal Tuan Amir">
-    </div>
+    <input type="hidden" id="f-tanggal">
   </div>
 
+  <!-- DEBIT & KREDIT -->
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
-    <!-- DEBIT -->
     <div>
       <label style="color:var(--danger); margin-bottom:8px; display:block;">▲ DEBIT</label>
       <div id="debit-list">
-        <div class="entry-row">
-          <input type="text" class="d-acc" placeholder="Nama Akun" list="acc-list" style="flex:2">
-          <input type="number" class="d-amt" placeholder="Jumlah" min="0" style="flex:1">
-          <button type="button" class="btn btn-danger btn-remove btn-sm" onclick="removeRow(this)">✕</button>
+        <div class="entry-row" style="align-items:flex-start; gap:8px;">
+          <div class="akun-wrapper">
+            <input type="text" class="akun-input d-acc"
+                   placeholder="Cari nama/kode akun..."
+                   autocomplete="off">
+            <div class="akun-dropdown"></div>
+            <div class="akun-selected-badge"></div>
+          </div>
+          <input type="number" class="d-amt" placeholder="Jumlah"
+                 min="0" style="flex:1" oninput="calcTotals()">
+          <button type="button" class="btn btn-danger btn-remove btn-sm"
+                  onclick="removeRow(this)" style="margin-top:2px;">✕</button>
         </div>
       </div>
-      <button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addDebitRow()">+ Baris</button>
+      <button type="button" class="btn btn-ghost btn-sm"
+              style="margin-top:8px" onclick="addDebitRow()">+ Baris</button>
     </div>
-    <!-- KREDIT -->
     <div>
       <label style="color:var(--accent2); margin-bottom:8px; display:block;">▼ KREDIT</label>
       <div id="kredit-list">
-        <div class="entry-row">
-          <input type="text" class="k-acc" placeholder="Nama Akun" list="acc-list" style="flex:2">
-          <input type="number" class="k-amt" placeholder="Jumlah" min="0" style="flex:1">
-          <button type="button" class="btn btn-danger btn-remove btn-sm" onclick="removeRow(this)">✕</button>
+        <div class="entry-row" style="align-items:flex-start; gap:8px;">
+          <div class="akun-wrapper">
+            <input type="text" class="akun-input k-acc"
+                   placeholder="Cari nama/kode akun..."
+                   autocomplete="off">
+            <div class="akun-dropdown"></div>
+            <div class="akun-selected-badge"></div>
+          </div>
+          <input type="number" class="k-amt" placeholder="Jumlah"
+                 min="0" style="flex:1" oninput="calcTotals()">
+          <button type="button" class="btn btn-danger btn-remove btn-sm"
+                  onclick="removeRow(this)" style="margin-top:2px;">✕</button>
         </div>
       </div>
-      <button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addKreditRow()">+ Baris</button>
+      <button type="button" class="btn btn-ghost btn-sm"
+              style="margin-top:8px" onclick="addKreditRow()">+ Baris</button>
     </div>
   </div>
 
   <!-- BALANCE CHECK -->
-  <div id="balance-check" style="margin-top:16px; padding:10px; background:var(--surface2); border-radius:6px; font-size:12px; display:flex; gap:24px;">
+  <div id="balance-check"
+       style="margin-top:16px; padding:10px; background:var(--surface2);
+              border-radius:6px; font-size:12px; display:flex; gap:24px;">
     <span>Debit: <strong id="total-d" style="font-family:var(--mono)">Rp 0</strong></span>
     <span>Kredit: <strong id="total-k" style="font-family:var(--mono)">Rp 0</strong></span>
     <span id="balance-status"></span>
   </div>
 
   <div style="margin-top:16px; display:flex; gap:10px;">
-    <button type="button" class="btn btn-primary" onclick="submitJurnal()">+ Tambah ke Jurnal</button>
-    <button type="button" class="btn btn-ghost" onclick="clearForm()">Bersihkan</button>
+    <button type="button" class="btn btn-primary" onclick="submitJurnal()">
+      + Tambah ke Jurnal
+    </button>
+    <button type="button" class="btn btn-ghost" onclick="clearForm()">
+      Bersihkan
+    </button>
   </div>
 </div>
 
-<!-- TABEL JURNAL -->
+<!-- ── TABEL JURNAL ── -->
 <div class="card">
-  <!-- Judul Tabel -->
-  <div style="text-align:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+  <div style="text-align:center; margin-bottom:16px; padding-bottom:12px;
+              border-bottom:1px solid var(--border);">
     <div style="font-weight:700; font-size:15px; color:var(--text);">{{ perusahaan.nama }}</div>
     <div style="font-size:13px; color:var(--text2);">Jurnal Umum / General Journal</div>
     <div style="font-size:13px; color:var(--text2);">Per {{ perusahaan.periode }}</div>
   </div>
   <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
     <span>Daftar Transaksi ({{ jurnal|length }} entri)</span>
-    <div style="display:flex;gap:8px;">
+    <div style="display:flex; gap:8px;">
       {% if jurnal %}
-      <a href="{{ url_for('buku_besar') }}" class="btn btn-success btn-sm">→ Posting ke Buku Besar</a>
-      <form method="POST" action="{{ url_for('jurnal_clear') }}" style="display:inline" onsubmit="return confirm('Hapus semua jurnal?')">
+      <a href="{{ url_for('buku_besar') }}" class="btn btn-success btn-sm">
+        → Posting ke Buku Besar
+      </a>
+      <form method="POST" action="{{ url_for('jurnal_clear') }}" style="display:inline"
+            onsubmit="return confirm('Hapus semua jurnal?')">
         <button type="submit" class="btn btn-danger btn-sm">Hapus Semua</button>
       </form>
       {% endif %}
-      <a href="{{ url_for('export_jurnal_route') }}" class="btn btn-ghost btn-sm">📥 Export Excel</a>
+      <a href="{{ url_for('export_jurnal_route') }}" class="btn btn-ghost btn-sm">
+        📥 Export Excel
+      </a>
       <button onclick="window.print()" class="btn btn-ghost btn-sm">🖨 Print</button>
     </div>
   </div>
@@ -93,10 +216,15 @@
       <thead>
         <tr>
           <th>Tanggal</th>
-          <th>Nama Akun / Keterangan</th>
+          <th>No. Akun</th>
+          <th>Nama Akun</th>
           <th>Ref</th>
-          <th class="num">{% if currency == "USD" %}Debit ($){% else %}Debit (Rp){% endif %}</th>
-          <th class="num">{% if currency == "USD" %}Kredit ($){% else %}Kredit (Rp){% endif %}</th>
+          <th class="num">
+            {% if currency == "USD" %}Debit ($){% else %}Debit (Rp){% endif %}
+          </th>
+          <th class="num">
+            {% if currency == "USD" %}Kredit ($){% else %}Kredit (Rp){% endif %}
+          </th>
           <th class="no-print">Aksi</th>
         </tr>
       </thead>
@@ -104,47 +232,51 @@
         {% set total_d = namespace(v=0) %}
         {% set total_k = namespace(v=0) %}
         {% for e in jurnal %}
-        <!-- Debit entries -->
-        {% for i, item in e.debit_entries | enumerate %}
-        <tr>
-          {% if i == 0 %}
-          <td rowspan="{{ e.debit_entries|length + e.kredit_entries|length }}">{{ e.tanggal }}</td>
-          {% endif %}
-          <td class="acc-name">{{ item.akun }}</td>
-          <td><span class="badge badge-neutral">JU</span></td>
-          <td class="debit-val">{{ item.jumlah | fmt_currency(currency) }}</td>
-          <td></td>
-          {% if loop.first %}
-          <td rowspan="{{ e.debit_entries|length + e.kredit_entries|length }}" class="no-print" style="vertical-align:middle;">
-            <form method="POST" action="{{ url_for('jurnal_delete', idx=loop.index0) }}" style="display:inline">
-              <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Hapus transaksi ini?')">✕</button>
-            </form>
-          </td>
-          {% endif %}
-        </tr>
-        {% set total_d.v = total_d.v + item.jumlah %}
-        {% endfor %}
-        <!-- Kredit entries -->
-        {% for item in e.kredit_entries %}
-        <tr>
-          <td class="sub-entry">{{ item.akun }}</td>
-          <td><span class="badge badge-neutral">JU</span></td>
-          <td></td>
-          <td class="kredit-val">{{ item.jumlah | fmt_currency(currency) }}</td>
-        </tr>
-        {% set total_k.v = total_k.v + item.jumlah %}
-        {% endfor %}
-        <!-- Keterangan row -->
-        <tr style="background:rgba(255,255,255,0.02);">
-          <td colspan="5" style="color:var(--text3); font-size:11px; padding:6px 14px; font-style:italic;">
-            📝 {{ e.keterangan }}
-          </td>
-        </tr>
-        <!-- Spacer -->
-        <tr style="height:4px; background:var(--bg);"><td colspan="6"></td></tr>
+          {% set n_rows = e.debit_entries|length + e.kredit_entries|length %}
+          {% for i, item in e.debit_entries | enumerate %}
+          <tr>
+            {% if i == 0 %}
+            <td rowspan="{{ n_rows }}">{{ e.tanggal }}</td>
+            {% endif %}
+            <td style="font-family:var(--mono); font-size:11px; color:var(--accent);">
+              {{ account_codes.get(item.akun, '—') }}
+            </td>
+            <td class="acc-name">{{ item.akun }}</td>
+            <td><span class="badge badge-neutral">JU</span></td>
+            <td class="debit-val">{{ item.jumlah | fmt_currency(currency) }}</td>
+            <td></td>
+            {% if loop.first %}
+            <td rowspan="{{ n_rows }}" class="no-print" style="vertical-align:middle;">
+              <form method="POST"
+                    action="{{ url_for('jurnal_delete', idx=loop.index0) }}"
+                    style="display:inline">
+                <button type="submit" class="btn btn-danger btn-sm"
+                        onclick="return confirm('Hapus transaksi ini?')">✕</button>
+              </form>
+            </td>
+            {% endif %}
+          </tr>
+          {% set total_d.v = total_d.v + item.jumlah %}
+          {% endfor %}
+          {% for item in e.kredit_entries %}
+          <tr>
+            <td style="font-family:var(--mono); font-size:11px; color:var(--accent2);">
+              {{ account_codes.get(item.akun, '—') }}
+            </td>
+            <td class="sub-entry">{{ item.akun }}</td>
+            <td><span class="badge badge-neutral">JU</span></td>
+            <td></td>
+            <td class="kredit-val">{{ item.jumlah | fmt_currency(currency) }}</td>
+          </tr>
+          {% set total_k.v = total_k.v + item.jumlah %}
+          {% endfor %}
+          <!-- Spacer -->
+          <tr style="height:4px; background:var(--bg);">
+            <td colspan="7"></td>
+          </tr>
         {% endfor %}
         <tr class="tbl-footer">
-          <td colspan="3">T O T A L</td>
+          <td colspan="4">T O T A L</td>
           <td class="num debit-val">{{ jurnal | sum_debit | fmt_currency(currency) }}</td>
           <td class="num kredit-val">{{ jurnal | sum_kredit | fmt_currency(currency) }}</td>
           <td class="no-print"></td>
@@ -157,117 +289,222 @@
   {% endif %}
 </div>
 
-<!-- DATALIST akun -->
-<datalist id="acc-list">
-  <option value="Kas">
-  <option value="Piutang Usaha">
-  <option value="Perlengkapan">
-  <option value="Iklan Dibayar Dimuka">
-  <option value="Asuransi Dibayar Dimuka">
-  <option value="Sewa Dibayar Dimuka">
-  <option value="Peralatan">
-  <option value="Kendaraan">
-  <option value="Bangunan">
-  <option value="Akumulasi Penyusutan Peralatan">
-  <option value="Akumulasi Penyusutan Kendaraan">
-  <option value="Utang Usaha">
-  <option value="Utang Bank">
-  <option value="Utang Gaji">
-  <option value="Pendapatan Diterima Dimuka">
-  <option value="Modal">
-  <option value="Prive">
-  <option value="Pendapatan Jasa">
-  <option value="Pendapatan Sewa">
-  <option value="Beban Gaji">
-  <option value="Beban Sewa">
-  <option value="Beban Iklan">
-  <option value="Beban Asuransi">
-  <option value="Beban Perlengkapan">
-  <option value="Beban Penyusutan Peralatan">
-  <option value="Beban Penyusutan Kendaraan">
-  <option value="Beban Penyusutan Bangunan">
-  <option value="Beban Serba-serbi">
-  <option value="Beban Air, Listrik dan Telepon">
-</datalist>
-
+<!-- ── JAVASCRIPT ── -->
 <script>
-function fmt(n) { return 'Rp ' + Number(n||0).toLocaleString('id-ID'); }
+// ── Format angka ────────────────────────────────────────────────────────
+function fmt(n) {
+  return 'Rp ' + Number(n||0).toLocaleString('id-ID');
+}
 
+// ── Date picker — kalender native ────────────────────────────────────────
+const NAMA_BULAN = [
+  "Januari","Februari","Maret","April","Mei","Juni",
+  "Juli","Agustus","September","Oktober","November","Desember"
+];
+function updateTanggal(val) {
+  const preview = document.getElementById('preview-tanggal');
+  if (!val) {
+    document.getElementById('f-tanggal').value = '';
+    preview.textContent = '';
+    return;
+  }
+  // val = "YYYY-MM-DD"
+  const [y, m, d] = val.split('-');
+  const tgl = `${d} ${NAMA_BULAN[parseInt(m)-1]} ${y}`;
+  document.getElementById('f-tanggal').value = tgl;
+  preview.textContent = '✓ ' + tgl;
+}
+
+// ── Autocomplete akun ────────────────────────────────────────────────────
+function highlight(text, query) {
+  if (!query) return text;
+  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+  return text.replace(re, '<mark>$1</mark>');
+}
+
+function setupAkun(wrapper) {
+  const input    = wrapper.querySelector('.akun-input');
+  const dropdown = wrapper.querySelector('.akun-dropdown');
+  const badge    = wrapper.querySelector('.akun-selected-badge');
+  let selectedKode = '';
+  let hiIdx = -1;
+
+  function renderDropdown(q) {
+    // Tampilkan semua akun jika query kosong, filter jika ada query
+    const results = q
+      ? AKUN_DATA.filter(a =>
+          a.nama.toLowerCase().includes(q.toLowerCase()) ||
+          a.kode.toLowerCase().includes(q.toLowerCase())
+        )
+      : AKUN_DATA;
+    if (!results.length) {
+      dropdown.classList.remove('show');
+      return;
+    }
+    dropdown.innerHTML = results.map((a, i) => `
+      <div class="akun-option" data-kode="${a.kode}" data-nama="${a.nama}" data-idx="${i}">
+        <span class="akun-kode">${a.kode}</span>
+        <span class="akun-nama">${highlight(a.nama, q)}</span>
+      </div>
+    `).join('');
+    dropdown.classList.add('show');
+    hiIdx = -1;
+
+    dropdown.querySelectorAll('.akun-option').forEach(opt => {
+      opt.addEventListener('mousedown', e => {
+        e.preventDefault();
+        selectAkun(opt.dataset.kode, opt.dataset.nama);
+      });
+    });
+  }
+
+  function selectAkun(kode, nama) {
+    // Tampilkan "[kode] Nama Akun" di input, nilai yang dikirim tetap nama saja
+    input.value = `[${kode}] ${nama}`;
+    input.dataset.namaAkun = nama;  // simpan nama asli untuk dikirim ke server
+    selectedKode = kode;
+    badge.style.display = 'none';   // tidak perlu badge terpisah, sudah ada di input
+    dropdown.classList.remove('show');
+    hiIdx = -1;
+  }
+
+  input.addEventListener('input', () => {
+    selectedKode = '';
+    badge.style.display = 'none';
+    renderDropdown(input.value.trim());
+  });
+
+  input.addEventListener('keydown', e => {
+    const opts = dropdown.querySelectorAll('.akun-option');
+    if (!opts.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      hiIdx = Math.min(hiIdx + 1, opts.length - 1);
+      opts.forEach((o, i) => o.classList.toggle('highlighted', i === hiIdx));
+      opts[hiIdx]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      hiIdx = Math.max(hiIdx - 1, 0);
+      opts.forEach((o, i) => o.classList.toggle('highlighted', i === hiIdx));
+      opts[hiIdx]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && hiIdx >= 0) {
+      e.preventDefault();
+      const opt = opts[hiIdx];
+      selectAkun(opt.dataset.kode, opt.dataset.nama);
+    } else if (e.key === 'Escape') {
+      dropdown.classList.remove('show');
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => dropdown.classList.remove('show'), 150);
+  });
+
+  input.addEventListener('focus', () => {
+    // Tampilkan semua akun saat fokus, atau filter jika sudah ada teks
+    renderDropdown(input.value.trim());
+  });
+
+  // Expose getter untuk ambil nama akun
+  wrapper._getAkun = () => input.value.trim();
+}
+
+// Inisialisasi semua wrapper yang sudah ada
+document.querySelectorAll('.akun-wrapper').forEach(setupAkun);
+
+// ── Tambah baris ─────────────────────────────────────────────────────────
+function makeAkunRow(amtClass) {
+  const div = document.createElement('div');
+  div.className = 'entry-row';
+  div.style.cssText = 'align-items:flex-start; gap:8px;';
+  div.innerHTML = `
+    <div class="akun-wrapper">
+      <input type="text" class="akun-input ${amtClass === 'd-amt' ? 'd-acc' : 'k-acc'}"
+             placeholder="Cari nama/kode akun..." autocomplete="off">
+      <div class="akun-dropdown"></div>
+      <div class="akun-selected-badge"></div>
+    </div>
+    <input type="number" class="${amtClass}" placeholder="Jumlah"
+           min="0" style="flex:1" oninput="calcTotals()">
+    <button type="button" class="btn btn-danger btn-remove btn-sm"
+            onclick="removeRow(this)" style="margin-top:2px;">✕</button>
+  `;
+  setupAkun(div.querySelector('.akun-wrapper'));
+  return div;
+}
+
+function addDebitRow() {
+  document.getElementById('debit-list').appendChild(makeAkunRow('d-amt'));
+}
+function addKreditRow() {
+  document.getElementById('kredit-list').appendChild(makeAkunRow('k-amt'));
+}
+function removeRow(btn) {
+  btn.closest('.entry-row').remove();
+  calcTotals();
+}
+
+// ── Balance check ─────────────────────────────────────────────────────────
 function calcTotals() {
   let d = 0, k = 0;
   document.querySelectorAll('.d-amt').forEach(i => d += parseFloat(i.value||0));
   document.querySelectorAll('.k-amt').forEach(i => k += parseFloat(i.value||0));
   document.getElementById('total-d').textContent = fmt(d);
   document.getElementById('total-k').textContent = fmt(k);
-  const status = document.getElementById('balance-status');
-  if (d === 0 && k === 0) { status.textContent = ''; return; }
+  const s = document.getElementById('balance-status');
+  if (d === 0 && k === 0) { s.textContent = ''; return; }
   if (Math.abs(d-k) < 0.01) {
-    status.innerHTML = '<span style="color:var(--accent2)">✓ Balance!</span>';
+    s.innerHTML = '<span style="color:var(--accent2)">✓ Balance!</span>';
   } else {
-    status.innerHTML = `<span style="color:var(--danger)">✗ Selisih: ${fmt(Math.abs(d-k))}</span>`;
+    s.innerHTML = `<span style="color:var(--danger)">✗ Selisih: ${fmt(Math.abs(d-k))}</span>`;
   }
 }
 
-document.addEventListener('input', e => {
-  if (e.target.classList.contains('d-amt') || e.target.classList.contains('k-amt')) calcTotals();
-});
-
-function addDebitRow() {
-  const list = document.getElementById('debit-list');
-  const row = document.createElement('div');
-  row.className = 'entry-row';
-  row.innerHTML = `<input type="text" class="d-acc" placeholder="Nama Akun" list="acc-list" style="flex:2">
-    <input type="number" class="d-amt" placeholder="Jumlah" min="0" style="flex:1" oninput="calcTotals()">
-    <button type="button" class="btn btn-danger btn-remove btn-sm" onclick="removeRow(this)">✕</button>`;
-  list.appendChild(row);
-}
-
-function addKreditRow() {
-  const list = document.getElementById('kredit-list');
-  const row = document.createElement('div');
-  row.className = 'entry-row';
-  row.innerHTML = `<input type="text" class="k-acc" placeholder="Nama Akun" list="acc-list" style="flex:2">
-    <input type="number" class="k-amt" placeholder="Jumlah" min="0" style="flex:1" oninput="calcTotals()">
-    <button type="button" class="btn btn-danger btn-remove btn-sm" onclick="removeRow(this)">✕</button>`;
-  list.appendChild(row);
-}
-
-function removeRow(btn) {
-  btn.parentElement.remove();
-  calcTotals();
-}
-
+// ── Clear form ────────────────────────────────────────────────────────────
 function clearForm() {
+  // Reset date picker
+  document.getElementById('date-cal').value = '';
   document.getElementById('f-tanggal').value = '';
-  document.getElementById('f-ket').value = '';
-  document.getElementById('debit-list').innerHTML = `<div class="entry-row">
-    <input type="text" class="d-acc" placeholder="Nama Akun" list="acc-list" style="flex:2">
-    <input type="number" class="d-amt" placeholder="Jumlah" min="0" style="flex:1" oninput="calcTotals()">
-    <button type="button" class="btn btn-danger btn-remove btn-sm" onclick="removeRow(this)">✕</button></div>`;
-  document.getElementById('kredit-list').innerHTML = `<div class="entry-row">
-    <input type="text" class="k-acc" placeholder="Nama Akun" list="acc-list" style="flex:2">
-    <input type="number" class="k-amt" placeholder="Jumlah" min="0" style="flex:1" oninput="calcTotals()">
-    <button type="button" class="btn btn-danger btn-remove btn-sm" onclick="removeRow(this)">✕</button></div>`;
+  document.getElementById('preview-tanggal').textContent = '';
+
+  // Reset debit & kredit list
+  ['debit-list','kredit-list'].forEach(listId => {
+    const amtCls = listId === 'debit-list' ? 'd-amt' : 'k-amt';
+    const accCls = listId === 'debit-list' ? 'd-acc' : 'k-acc';
+    const list = document.getElementById(listId);
+    list.innerHTML = '';
+    list.appendChild(makeAkunRow(amtCls));
+  });
   calcTotals();
 }
 
+// ── Submit ────────────────────────────────────────────────────────────────
 async function submitJurnal() {
-  const da = [...document.querySelectorAll('.d-acc')].map(i => i.value);
+  const tgl = document.getElementById('f-tanggal').value;
+  if (!tgl) {
+    const box = document.getElementById('alert-box');
+    box.innerHTML = `<div class="alert alert-error">✗ Tanggal belum dipilih!</div>`;
+    box.scrollIntoView({ behavior: 'smooth' });
+    return;
+  }
+
+  // Ambil nama akun asli (bukan "[kode] Nama"), simpan di dataset.namaAkun saat dipilih
+  const da = [...document.querySelectorAll('.d-acc')].map(i => i.dataset.namaAkun || i.value);
   const dv = [...document.querySelectorAll('.d-amt')].map(i => i.value);
-  const ka = [...document.querySelectorAll('.k-acc')].map(i => i.value);
+  const ka = [...document.querySelectorAll('.k-acc')].map(i => i.dataset.namaAkun || i.value);
   const kv = [...document.querySelectorAll('.k-amt')].map(i => i.value);
 
   const body = new URLSearchParams();
-  body.append('tanggal', document.getElementById('f-tanggal').value);
-  body.append('keterangan', document.getElementById('f-ket').value);
+  body.append('tanggal', tgl);
+  body.append('keterangan', '');
   da.forEach(v => body.append('debit_account[]', v));
   dv.forEach(v => body.append('debit_amount[]', v));
   ka.forEach(v => body.append('kredit_account[]', v));
   kv.forEach(v => body.append('kredit_amount[]', v));
 
-  const res = await fetch('/jurnal/add', { method: 'POST', body });
+  const res  = await fetch('/jurnal/add', { method: 'POST', body });
   const data = await res.json();
-  const box = document.getElementById('alert-box');
+  const box  = document.getElementById('alert-box');
   if (data.error) {
     box.innerHTML = `<div class="alert alert-error">✗ ${data.error}</div>`;
   } else {

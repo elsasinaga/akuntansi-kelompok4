@@ -98,6 +98,39 @@
     </div>
 
     <div class="card">
+      <div class="card-title">Daftar Akun</div>
+      <p style="font-size:12px; color:var(--text2); margin-bottom:16px;">
+        Sesuaikan kode, nama, dan tipe akun untuk perusahaan ini. Input jurnal hanya memakai akun yang aktif.
+      </p>
+      <div style="display:grid; grid-template-columns:90px 1fr 170px 110px; gap:8px; margin-bottom:6px; padding:0 4px;">
+        <span style="font-size:11px; color:var(--text3); font-weight:600;">KODE</span>
+        <span style="font-size:11px; color:var(--text3); font-weight:600;">NAMA AKUN</span>
+        <span style="font-size:11px; color:var(--text3); font-weight:600;">TIPE</span>
+        <span style="font-size:11px; color:var(--text3); font-weight:600;">STATUS</span>
+      </div>
+      <div id="account-list">
+        {% for acc in accounts %}
+        <div class="account-row" style="display:grid; grid-template-columns:90px 1fr 170px 110px; gap:8px; margin-bottom:8px; align-items:center;">
+          <input type="text" name="account_kode" value="{{ acc.kode }}" placeholder="111">
+          <input type="text" name="account_nama" value="{{ acc.nama }}" placeholder="Nama akun">
+          <select name="account_tipe">
+            {% for type_key, type_label in account_type_labels.items() %}
+            <option value="{{ type_key }}" {% if acc.tipe == type_key %}selected{% endif %}>{{ type_label }}</option>
+            {% endfor %}
+          </select>
+          <select name="account_aktif">
+            <option value="1" {% if acc.aktif is not defined or acc.aktif %}selected{% endif %}>Aktif</option>
+            <option value="0" {% if acc.aktif is defined and not acc.aktif %}selected{% endif %}>Nonaktif</option>
+          </select>
+        </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="addAccountRow()" style="margin-top:8px;">
+        + Tambah Akun
+      </button>
+    </div>
+
+    <div class="card">
       <div class="card-title">Saldo Awal (Opsional)</div>
       <p style="font-size:12px; color:var(--text2); margin-bottom:16px;">
         Isi jika ada neraca saldo dari periode sebelumnya. Kosongkan jika perusahaan baru.
@@ -195,6 +228,29 @@ function addOBRow() {
   list.appendChild(row);
   window.accsysInitAkunSearch(row);
   row.querySelector('input[name="ob_account"]').focus();
+}
+
+function addAccountRow() {
+  const list = document.getElementById('account-list');
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className = 'account-row';
+  row.style.cssText = 'display:grid; grid-template-columns:90px 1fr 170px 110px; gap:8px; margin-bottom:8px; align-items:center;';
+  row.innerHTML = `
+    <input type="text" name="account_kode" placeholder="Kode">
+    <input type="text" name="account_nama" placeholder="Nama akun">
+    <select name="account_tipe">
+      {% for type_key, type_label in account_type_labels.items() %}
+      <option value="{{ type_key }}">{{ type_label }}</option>
+      {% endfor %}
+    </select>
+    <select name="account_aktif">
+      <option value="1" selected>Aktif</option>
+      <option value="0">Nonaktif</option>
+    </select>
+  `;
+  list.appendChild(row);
+  row.querySelector('input[name="account_kode"]').focus();
 }
 
 document.getElementById('setup-form')?.addEventListener('submit', function() {

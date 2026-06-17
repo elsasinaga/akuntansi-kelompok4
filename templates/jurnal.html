@@ -13,42 +13,7 @@
 
 <!-- ── DATA AKUN (JSON untuk JS) ── -->
 <script>
-const AKUN_DATA = [
-  { kode: "111",   nama: "Kas" },
-  { kode: "112",   nama: "Piutang Usaha" },
-  { kode: "113",   nama: "Perlengkapan" },
-  { kode: "114",   nama: "Iklan Dibayar Dimuka" },
-  { kode: "115",   nama: "Asuransi Dibayar Dimuka" },
-  { kode: "116",   nama: "Sewa Dibayar Dimuka" },
-  { kode: "121",   nama: "Peralatan" },
-  { kode: "122",   nama: "Kendaraan" },
-  { kode: "123",   nama: "Bangunan" },
-  { kode: "121.1", nama: "Akumulasi Penyusutan Peralatan" },
-  { kode: "122.1", nama: "Akumulasi Penyusutan Kendaraan" },
-  { kode: "123.1", nama: "Akumulasi Penyusutan Bangunan" },
-  { kode: "211",   nama: "Utang Usaha" },
-  { kode: "212",   nama: "Utang Bank" },
-  { kode: "213",   nama: "Utang Gaji" },
-  { kode: "214",   nama: "Utang Asuransi" },
-  { kode: "215",   nama: "Pendapatan Diterima Dimuka" },
-  { kode: "216",   nama: "Asuransi Diterima Dimuka" },
-  { kode: "217",   nama: "Sewa Diterima Dimuka" },
-  { kode: "311",   nama: "Modal" },
-  { kode: "312",   nama: "Prive" },
-  { kode: "313",   nama: "Ikhtisar Laba Rugi" },
-  { kode: "411",   nama: "Pendapatan Jasa" },
-  { kode: "412",   nama: "Pendapatan Sewa" },
-  { kode: "511",   nama: "Beban Gaji" },
-  { kode: "512",   nama: "Beban Sewa" },
-  { kode: "513",   nama: "Beban Iklan" },
-  { kode: "514",   nama: "Beban Asuransi" },
-  { kode: "515",   nama: "Beban Perlengkapan" },
-  { kode: "516",   nama: "Beban Penyusutan Peralatan" },
-  { kode: "517",   nama: "Beban Penyusutan Kendaraan" },
-  { kode: "518",   nama: "Beban Penyusutan Bangunan" },
-  { kode: "519",   nama: "Beban Serba-serbi" },
-  { kode: "520",   nama: "Beban Air, Listrik dan Telepon" },
-];
+const AKUN_DATA = {{ account_options | tojson }};
 
 // NAMA_BULAN didefinisikan di bagian JS date picker
 </script>

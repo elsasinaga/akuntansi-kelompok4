@@ -18,7 +18,8 @@ except ImportError:
 
 from logic.akuntansi import (
     build_buku_besar, build_neraca_saldo, build_kertas_kerja,
-    build_laporan, build_jurnal_penutup, ACCOUNT_CODES, get_account_type
+    build_laporan, build_jurnal_penutup, ACCOUNT_CODES, ACCOUNT_TYPE_LABELS,
+    default_accounts, get_account_type, normal_balance
 )
 from logic.export_excel import (
     export_jurnal, export_buku_besar, export_neraca_saldo,
@@ -73,15 +74,53 @@ def inject_globals():
     active_company = get_active_company()
     return dict(currency=currency, currency_symbol=symbol, groq_key_set=has_key,
                 active_company=active_company,
-                account_options=sort_account_options(ACCOUNT_CODES),
+                account_options=sort_account_options(ensure_accounts(data)),
+                account_type_labels=ACCOUNT_TYPE_LABELS,
                 storage_backend="Supabase" if supabase_enabled() else "Session")
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 def blank_data():
     return {
         "perusahaan": {}, "opening_balances": {},
+        "accounts": default_accounts(),
         "jurnal": [], "jurnal_penyesuaian": [], "penyesuaian_info": []
     }
+
+def ensure_accounts(data):
+    if not data.get("accounts"):
+        data["accounts"] = default_accounts()
+    return data["accounts"]
+
+def active_account_codes(data=None):
+    data = data or get_data()
+    return {
+        acc.get("nama"): acc.get("kode")
+        for acc in ensure_accounts(data)
+        if acc.get("nama") and acc.get("aktif", True)
+    }
+
+def rename_accounts_in_data(data, old_accounts, new_accounts):
+    old_by_code = {acc.get("kode"): acc.get("nama") for acc in old_accounts if acc.get("kode") and acc.get("nama")}
+    new_by_code = {acc.get("kode"): acc.get("nama") for acc in new_accounts if acc.get("kode") and acc.get("nama")}
+    rename_map = {
+        old_name: new_name
+        for code, old_name in old_by_code.items()
+        for new_name in [new_by_code.get(code)]
+        if new_name and old_name != new_name
+    }
+    if not rename_map:
+        return
+
+    opening = data.get("opening_balances", {})
+    data["opening_balances"] = {
+        rename_map.get(name, name): value
+        for name, value in opening.items()
+    }
+    for journal_key in ("jurnal", "jurnal_penyesuaian"):
+        for entry in data.get(journal_key, []):
+            for side_key in ("debit_entries", "kredit_entries"):
+                for item in entry.get(side_key, []):
+                    item["akun"] = rename_map.get(item.get("akun"), item.get("akun"))
 
 def supabase_enabled():
     return bool(SUPABASE_URL and SUPABASE_KEY)
@@ -269,8 +308,11 @@ def get_active_company():
 def get_data():
     active_company = get_active_company()
     if active_company:
-        return active_company.get("data", blank_data())
-    return blank_data()
+        data = active_company.get("data", blank_data())
+    else:
+        data = blank_data()
+    ensure_accounts(data)
+    return data
 
 def save_data(data):
     if supabase_enabled():
@@ -339,16 +381,29 @@ def parse_amount(value):
     return float(s)
 
 def _account_code_sort_key(account_name):
-    code = ACCOUNT_CODES.get(account_name, "999")
+    if isinstance(account_name, dict):
+        code = account_name.get("kode", "999")
+        name = account_name.get("nama", "")
+    else:
+        code = ACCOUNT_CODES.get(account_name, "999")
+        name = account_name
     parts = []
-    for part in code.split("."):
+    for part in str(code).split("."):
         parts.append(int(part) if part.isdigit() else 999)
-    return (parts, account_name.lower())
+    return (parts, str(name).lower())
 
-def sort_buku_besar(buku_besar):
-    return dict(sorted(buku_besar.items(), key=lambda item: _account_code_sort_key(item[0])))
+def sort_buku_besar(buku_besar, accounts=None):
+    acc_map = {acc.get("nama"): acc for acc in accounts or []}
+    return dict(sorted(
+        buku_besar.items(),
+        key=lambda item: _account_code_sort_key(acc_map.get(item[0], item[0]))
+    ))
 
 def sort_account_options(account_codes):
+    if isinstance(account_codes, list):
+        accounts = [a for a in account_codes if a.get("nama") and a.get("aktif", True)]
+        return [{"nama": a.get("nama"), "kode": a.get("kode", "---")}
+                for a in sorted(accounts, key=_account_code_sort_key)]
     return [{"nama": name, "kode": code}
             for name, code in sorted(account_codes.items(),
                                      key=lambda item: _account_code_sort_key(item[0]))]
@@ -392,6 +447,7 @@ def index():
     return render_template("index.html",
                            perusahaan=data.get("perusahaan", {}),
                            opening_balances=data.get("opening_balances", {}),
+                           accounts=ensure_accounts(data),
                            companies=companies,
                            show_setup=show_setup)
 
@@ -449,6 +505,7 @@ def company_delete(company_id):
 @app.route("/setup", methods=["POST"])
 def setup():
     data = get_data()
+    old_accounts = list(ensure_accounts(data))
     data["perusahaan"] = {
         "nama":     request.form.get("nama_perusahaan", ""),
         "pemilik":  request.form.get("nama_pemilik", ""),
@@ -456,6 +513,26 @@ def setup():
         "jenis":    request.form.get("jenis_usaha", ""),
         "currency": request.form.get("currency", "IDR")
     }
+
+    accounts = []
+    for kode, nama, tipe, aktif in zip(request.form.getlist("account_kode"),
+                                      request.form.getlist("account_nama"),
+                                      request.form.getlist("account_tipe"),
+                                      request.form.getlist("account_aktif")):
+        kode = (kode or "").strip()
+        nama = (nama or "").strip()
+        tipe = (tipe or "").strip() or get_account_type(nama)
+        if kode and nama:
+            accounts.append({
+                "kode": kode,
+                "nama": nama,
+                "tipe": tipe,
+                "saldo_normal": "debit" if tipe in ("asset", "expense", "drawing") else "credit",
+                "aktif": aktif == "1",
+            })
+    data["accounts"] = accounts or default_accounts()
+    rename_accounts_in_data(data, old_accounts, data["accounts"])
+
     ob = {}
     for acc, d, k in zip(request.form.getlist("ob_account"),
                          request.form.getlist("ob_debit"),
@@ -477,7 +554,7 @@ def jurnal():
     return render_template("jurnal.html",
                            perusahaan=data["perusahaan"],
                            jurnal=data.get("jurnal", []),
-                           account_codes=ACCOUNT_CODES)
+                           account_codes=active_account_codes(data))
 
 @app.route("/jurnal/add", methods=["POST"])
 def jurnal_add():
@@ -539,10 +616,12 @@ def buku_besar():
     data = get_data()
     if not data.get("jurnal"):
         return redirect(url_for("jurnal"))
+    accounts = ensure_accounts(data)
     bb = build_buku_besar(data["jurnal"],
                           data.get("jurnal_penyesuaian"),
-                          data.get("opening_balances"))
-    bb = sort_buku_besar(bb)
+                          data.get("opening_balances"),
+                          accounts)
+    bb = sort_buku_besar(bb, accounts)
     return render_template("buku_besar.html",
                            perusahaan=data["perusahaan"], buku_besar=bb)
 
@@ -552,8 +631,9 @@ def neraca_saldo():
     data = get_data()
     redir = require_setup(data) or require_jurnal(data)
     if redir: return redir
-    bb = build_buku_besar(data["jurnal"], None, data.get("opening_balances"))
-    ns = build_neraca_saldo(bb)
+    accounts = ensure_accounts(data)
+    bb = build_buku_besar(data["jurnal"], None, data.get("opening_balances"), accounts)
+    ns = build_neraca_saldo(bb, accounts)
     return render_template("neraca_saldo.html",
                            perusahaan=data["perusahaan"], neraca_saldo=ns,
                            total_d=sum(r["debit"]  for r in ns),
@@ -565,12 +645,13 @@ def penyesuaian():
     data = get_data()
     redir = require_setup(data) or require_jurnal(data)
     if redir: return redir
-    bb = build_buku_besar(data["jurnal"], None, data.get("opening_balances"))
-    ns = build_neraca_saldo(bb)
+    accounts = ensure_accounts(data)
+    bb = build_buku_besar(data["jurnal"], None, data.get("opening_balances"), accounts)
+    ns = build_neraca_saldo(bb, accounts)
     return render_template("penyesuaian.html",
                            perusahaan=data["perusahaan"], neraca_saldo=ns,
                            jurnal_penyesuaian=data.get("jurnal_penyesuaian", []),
-                           account_codes=ACCOUNT_CODES)
+                           account_codes=active_account_codes(data))
 
 @app.route("/penyesuaian/add", methods=["POST"])
 def penyesuaian_add():
@@ -612,9 +693,10 @@ def kertas_kerja():
     data = get_data()
     redir = require_setup(data) or require_jurnal(data)
     if redir: return redir
-    bb   = build_buku_besar(data["jurnal"], None, data.get("opening_balances"))
-    ns   = build_neraca_saldo(bb)
-    kk   = build_kertas_kerja(ns, data.get("jurnal_penyesuaian", []))
+    accounts = ensure_accounts(data)
+    bb   = build_buku_besar(data["jurnal"], None, data.get("opening_balances"), accounts)
+    ns   = build_neraca_saldo(bb, accounts)
+    kk   = build_kertas_kerja(ns, data.get("jurnal_penyesuaian", []), accounts)
     total = {k: sum(r[k] for r in kk) for k in
              ["ns_d","ns_k","ajp_d","ajp_k","nsd_d","nsd_k","lr_d","lr_k","ner_d","ner_k"]}
     laba = total["lr_k"] - total["lr_d"]
@@ -628,11 +710,12 @@ def laporan():
     data = get_data()
     redir = require_setup(data) or require_jurnal(data)
     if redir: return redir
-    bb   = build_buku_besar(data["jurnal"], None, data.get("opening_balances"))
-    ns   = build_neraca_saldo(bb)
-    kk   = build_kertas_kerja(ns, data.get("jurnal_penyesuaian", []))
+    accounts = ensure_accounts(data)
+    bb   = build_buku_besar(data["jurnal"], None, data.get("opening_balances"), accounts)
+    ns   = build_neraca_saldo(bb, accounts)
+    kk   = build_kertas_kerja(ns, data.get("jurnal_penyesuaian", []), accounts)
     p    = data["perusahaan"]
-    lap  = build_laporan(kk, p["nama"], p["pemilik"], p["periode"])
+    lap  = build_laporan(kk, p["nama"], p["pemilik"], p["periode"], accounts)
     return render_template("laporan.html", laporan=lap, perusahaan=p)
 
 # ── Jurnal Penutup ─────────────────────────────────────────────────────────
@@ -641,11 +724,12 @@ def jurnal_penutup():
     data = get_data()
     redir = require_setup(data) or require_jurnal(data)
     if redir: return redir
-    bb   = build_buku_besar(data["jurnal"], None, data.get("opening_balances"))
-    ns   = build_neraca_saldo(bb)
-    kk   = build_kertas_kerja(ns, data.get("jurnal_penyesuaian", []))
+    accounts = ensure_accounts(data)
+    bb   = build_buku_besar(data["jurnal"], None, data.get("opening_balances"), accounts)
+    ns   = build_neraca_saldo(bb, accounts)
+    kk   = build_kertas_kerja(ns, data.get("jurnal_penyesuaian", []), accounts)
     p    = data["perusahaan"]
-    lap  = build_laporan(kk, p["nama"], p["pemilik"], p["periode"])
+    lap  = build_laporan(kk, p["nama"], p["pemilik"], p["periode"], accounts)
     jp   = build_jurnal_penutup(lap, p["periode"])
     return render_template("jurnal_penutup.html", perusahaan=p, jurnal_penutup=jp)
 
@@ -679,16 +763,18 @@ def export_jurnal_route():
 @app.route("/export/buku_besar")
 def export_buku_besar_route():
     data = get_data(); p = data["perusahaan"]
-    bb = build_buku_besar(data["jurnal"], data.get("jurnal_penyesuaian"), data.get("opening_balances"))
-    bb = sort_buku_besar(bb)
+    accounts = ensure_accounts(data)
+    bb = build_buku_besar(data["jurnal"], data.get("jurnal_penyesuaian"), data.get("opening_balances"), accounts)
+    bb = sort_buku_besar(bb, accounts)
     return _excel_response(export_buku_besar(bb, p, p.get("currency","IDR")),
                            f"Buku_Besar_{p['periode'].replace(' ','_')}.xlsx")
 
 @app.route("/export/neraca_saldo")
 def export_neraca_saldo_route():
     data = get_data(); p = data["perusahaan"]
-    bb = build_buku_besar(data["jurnal"], None, data.get("opening_balances"))
-    ns = build_neraca_saldo(bb)
+    accounts = ensure_accounts(data)
+    bb = build_buku_besar(data["jurnal"], None, data.get("opening_balances"), accounts)
+    ns = build_neraca_saldo(bb, accounts)
     return _excel_response(export_neraca_saldo(ns, p, p.get("currency","IDR")),
                            f"Neraca_Saldo_{p['periode'].replace(' ','_')}.xlsx")
 
@@ -701,9 +787,10 @@ def export_penyesuaian_route():
 @app.route("/export/kertas_kerja")
 def export_kertas_kerja_route():
     data = get_data(); p = data["perusahaan"]
-    bb = build_buku_besar(data["jurnal"], None, data.get("opening_balances"))
-    ns = build_neraca_saldo(bb)
-    kk = build_kertas_kerja(ns, data.get("jurnal_penyesuaian", []))
+    accounts = ensure_accounts(data)
+    bb = build_buku_besar(data["jurnal"], None, data.get("opening_balances"), accounts)
+    ns = build_neraca_saldo(bb, accounts)
+    kk = build_kertas_kerja(ns, data.get("jurnal_penyesuaian", []), accounts)
     laba = sum(r["lr_k"] for r in kk) - sum(r["lr_d"] for r in kk)
     return _excel_response(export_kertas_kerja(kk, p, laba, p.get("currency","IDR")),
                            f"Kertas_Kerja_{p['periode'].replace(' ','_')}.xlsx")
@@ -711,20 +798,22 @@ def export_kertas_kerja_route():
 @app.route("/export/laporan")
 def export_laporan_route():
     data = get_data(); p = data["perusahaan"]
-    bb = build_buku_besar(data["jurnal"], None, data.get("opening_balances"))
-    ns = build_neraca_saldo(bb)
-    kk = build_kertas_kerja(ns, data.get("jurnal_penyesuaian", []))
-    lap = build_laporan(kk, p["nama"], p["pemilik"], p["periode"])
+    accounts = ensure_accounts(data)
+    bb = build_buku_besar(data["jurnal"], None, data.get("opening_balances"), accounts)
+    ns = build_neraca_saldo(bb, accounts)
+    kk = build_kertas_kerja(ns, data.get("jurnal_penyesuaian", []), accounts)
+    lap = build_laporan(kk, p["nama"], p["pemilik"], p["periode"], accounts)
     return _excel_response(export_laporan(lap, p.get("currency","IDR")),
                            f"Laporan_Keuangan_{p['periode'].replace(' ','_')}.xlsx")
 
 @app.route("/export/jurnal_penutup")
 def export_jurnal_penutup_route():
     data = get_data(); p = data["perusahaan"]
-    bb = build_buku_besar(data["jurnal"], None, data.get("opening_balances"))
-    ns = build_neraca_saldo(bb)
-    kk = build_kertas_kerja(ns, data.get("jurnal_penyesuaian", []))
-    lap = build_laporan(kk, p["nama"], p["pemilik"], p["periode"])
+    accounts = ensure_accounts(data)
+    bb = build_buku_besar(data["jurnal"], None, data.get("opening_balances"), accounts)
+    ns = build_neraca_saldo(bb, accounts)
+    kk = build_kertas_kerja(ns, data.get("jurnal_penyesuaian", []), accounts)
+    lap = build_laporan(kk, p["nama"], p["pemilik"], p["periode"], accounts)
     jp  = build_jurnal_penutup(lap, p["periode"])
     return _excel_response(export_jurnal_penutup(jp, p, p.get("currency","IDR")),
                            f"Jurnal_Penutup_{p['periode'].replace(' ','_')}.xlsx")

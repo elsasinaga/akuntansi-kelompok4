@@ -206,24 +206,14 @@ def build_kertas_kerja(neraca_saldo, jurnal_penyesuaian, accounts=None):
         ajp_k = ajp_kredit.get(acc, 0)
 
         # NSD = NS ± AJP
-        nb = normal_balance(acc, accounts)
-        if nb == "debit":
-            nsd_d = ns_d + ajp_d - ajp_k
-            nsd_k = 0
-            if nsd_d < 0:
-                nsd_k = abs(nsd_d); nsd_d = 0
-        else:
-            nsd_k = ns_k + ajp_k - ajp_d
-            nsd_d = 0
-            if nsd_k < 0:
-                nsd_d = abs(nsd_k); nsd_k = 0
-
+        adjusted = (ns_d - ns_k) + (ajp_d - ajp_k)
+        nsd_d = adjusted if adjusted > 0 else 0
+        nsd_k = abs(adjusted) if adjusted < 0 else 0
+        
         t = get_account_type(acc, accounts)
         # Laba Rugi: pendapatan & beban
-        if t == "revenue":
-            lr_d, lr_k, ner_d, ner_k = 0, nsd_k, 0, 0
-        elif t == "expense":
-            lr_d, lr_k, ner_d, ner_k = nsd_d, 0, 0, 0
+        if t in ("revenue", "expense"):
+            lr_d, lr_k, ner_d, ner_k = nsd_d, nsd_k, 0, 0
         else:
             lr_d, lr_k, ner_d, ner_k = 0, 0, nsd_d, nsd_k
 
